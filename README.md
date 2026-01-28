@@ -1,6 +1,6 @@
 # RetroPunks NFT Website 3.0 
 
-Welcome to the RetroPunks website!
+This is the official RetroPunks NFT Website Project
 
 ## Getting Started
 
