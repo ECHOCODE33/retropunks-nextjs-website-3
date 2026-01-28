@@ -1,6 +1,10 @@
 # RetroPunks NFT Website 3.0 
 
-This is the official RetroPunks NFT Website Project, run on [http://localhost:3000](http://localhost:3000). It is an NFT website for the RetroPunks NFT collection, allowing users to view and customize their NFTs from the ERC721 smart-contract: [0x7A7741eBfAD78ce204395ba1dd0B516b40e79102](https://sepolia.etherscan.io/address/0x7a7741ebfad78ce204395ba1dd0b516b40e79102). The project is currently based on Ethereum Sepolia for testing purposes, but in the future it will be changed to either Ethereum Mainnet or Base Mainnet.
+This is the official RetroPunks NFT Website Project, run on [http://localhost:3000](http://localhost:3000). 
+
+It is an NFT website for the RetroPunks NFT collection, allowing users to view and customize their NFTs from the ERC721 smart-contract: [0x7A7741eBfAD78ce204395ba1dd0B516b40e79102](https://sepolia.etherscan.io/address/0x7a7741ebfad78ce204395ba1dd0b516b40e79102). 
+
+The project is currently based on Ethereum Sepolia for testing purposes, but in the future it will be changed to either Ethereum Mainnet or Base Mainnet.
 
 ## Tech Stack
 - [TypeScript](https://github.com/microsoft/TypeScript)
