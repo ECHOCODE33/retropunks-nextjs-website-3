@@ -1,0 +1,30 @@
+{
+	"name": "retropunks-nextjs-website-3",
+	"version": "0.1.0",
+	"private": true,
+	"scripts": {
+		"dev": "next dev",
+		"build": "next build",
+		"start": "next start",
+		"lint": "next lint"
+	},
+	"dependencies": {
+		"next": "16.1.5",
+		"react": "18.2.0",
+		"react-dom": "18.2.0",
+		"wagmi": "3.4.1",
+		"viem": "2.45.0",
+		"@rainbow-me/rainbowkit": "2.2.10",
+		"@tanstack/react-query": "5.90.20"
+	},
+	"devDependencies": {
+		"@tailwindcss/postcss": "^4",
+		"@types/node": "^20.0.0",
+		"@types/react": "18.2.0",
+		"@types/react-dom": "18.2.0",
+		"eslint": "^9.0.0",
+		"eslint-config-next": "16.1.5",
+		"tailwindcss": "4.1.18",
+		"typescript": "5.9.3"
+	}
+}
