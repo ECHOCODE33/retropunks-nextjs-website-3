@@ -18,4 +18,6 @@ The project is currently based on Ethereum Sepolia for testing purposes, but in 
 
 ## Smart Contract
 
-The smart contract that this website is integrated with can be found on Sepolia Etherscan ([0x7A7741eBfAD78ce204395ba1dd0B516b40e79102](https://sepolia.etherscan.io/address/0x7a7741ebfad78ce204395ba1dd0b516b40e79102)), and its source code can be found at the [RetroPunks-Lab](https://github.com/ECHOCODE33/RetroPunks-Lab) Github repository.
+The smart contract that this website is integrated with can be found on Sepolia Etherscan ([0x7A7741eBfAD78ce204395ba1dd0B516b40e79102](https://sepolia.etherscan.io/address/0x7a7741ebfad78ce204395ba1dd0b516b40e79102)).-gear-container
+
+The source code of the Solidity smart contract can be found in the [RetroPunks-Lab](https://github.com/ECHOCODE33/RetroPunks-Lab) Github repository.
