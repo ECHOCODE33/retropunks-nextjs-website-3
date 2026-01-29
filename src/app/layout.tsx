@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "@rainbow-me/rainbowkit/styles.css";
-import { Providers } from "@/lib/providers";
+import { ClientProviders } from "@/lib/ClientProviders";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import { pressFont, googleFont, robotoFont, spaceFont, lexendFont, oxaniumFont } from "@/lib/fonts";
@@ -16,13 +16,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 	return (
 		<html lang="en" className={`${pressFont.variable} ${googleFont.variable} ${robotoFont.variable} ${spaceFont.variable} ${lexendFont.variable} ${oxaniumFont.variable} antialiased`}>
 			<body>
-				<Providers>
+				<ClientProviders>
 					<div className="min-h-screen flex flex-col w-full mx-auto max-w-7xl px-16">
 						<Header />
 						<main className="flex flex-col grow items-center justify-center">{children}</main>
 						<Footer />
 					</div>
-				</Providers>
+				</ClientProviders>
 			</body>
 		</html>
 	);
