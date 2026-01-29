@@ -10,12 +10,12 @@ The project is currently based on Ethereum Sepolia for testing purposes, but in 
 
 - [TypeScript](https://github.com/microsoft/TypeScript)
 - [Next.js](https://github.com/vercel/next.js) 16.1.5
-- [React](https://github.com/facebook/react) 18.2.0
+- [React](https://github.com/facebook/react) 19.2.3
 - [Tailwind CSS](https://github.com/tailwindlabs/tailwindcss) v4
-- [Wagmi](https://github.com/wevm/wagmi) 3.4.1
-- [Viem](https://github.com/vercel/next.js) 2.45.0
+- [Wagmi](https://github.com/wevm/wagmi) 2.19.3
+- [Viem](https://github.com/vercel/next.js) 2.38.0
 - [RainbowKit](https://github.com/wevm/viem) 2.2.10
-- [Tanstack Query](https://github.com/TanStack/query) 5.90.20
+- [Tanstack Query](https://github.com/TanStack/query) 5.55.3
 
 ## Smart Contract
 
