@@ -84,7 +84,7 @@ const PunkCard: React.FC<PunkCardProps> = ({ tokenId, tokenUri, currentBg }) => 
     if (layerType === BG_TYPES.Image && name === "Rainbow") {
       const rainbowPalette = ["#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#0000ff", "#4b0082", "#9400d3"];
       const stops = rainbowPalette.map((col, i) => (
-        <stop key={i} offset={`${(i / (rainbowPalette.length - 1)) * 100}%`} stop-color={col} />
+        <stop key={i} offset={`${(i / (rainbowPalette.length - 1)) * 100}%`} stopColor={col} />
       ));
 
       return (
@@ -113,7 +113,7 @@ const PunkCard: React.FC<PunkCardProps> = ({ tokenId, tokenUri, currentBg }) => 
     if (layerType === BG_TYPES.Radial) {
       const stops = palette.map((col, i) => {
         const offset = palette.length > 1 ? (i / (palette.length - 1)) * 100 : 0;
-        return <stop key={i} offset={`${offset}%`} stop-color={normalizeColor(col)} />;
+        return <stop key={i} offset={`${offset}%`} stopColor={normalizeColor(col)} />;
       });
 
       return (
@@ -148,17 +148,17 @@ const PunkCard: React.FC<PunkCardProps> = ({ tokenId, tokenUri, currentBg }) => 
       for (let i = 0; i < n; i++) {
         const start = (i / n) * 100;
         const end = ((i + 1) / n) * 100;
-        stops.push(<stop key={`${i}-a`} offset={`${start}%`} stop-color={normalizeColor(palette[i])} />);
-        stops.push(<stop key={`${i}-b`} offset={`${end - epsilon}%`} stop-color={normalizeColor(palette[i])} />);
+        stops.push(<stop key={`${i}-a`} offset={`${start}%`} stopColor={normalizeColor(palette[i])} />);
+        stops.push(<stop key={`${i}-b`} offset={`${end - epsilon}%`} stopColor={normalizeColor(palette[i])} />);
         if (i < n - 1) {
-          stops.push(<stop key={`${i}-c`} offset={`${end}%`} stop-color={normalizeColor(palette[i + 1])} />);
+          stops.push(<stop key={`${i}-c`} offset={`${end}%`} stopColor={normalizeColor(palette[i + 1])} />);
         }
       }
     } else {
       const n = palette.length;
       stops = palette.map((col, i) => {
         const pct = n > 1 ? (i / (n - 1)) * 100 : 0;
-        return <stop key={i} offset={`${pct}%`} stop-color={normalizeColor(col)} />;
+        return <stop key={i} offset={`${pct}%`} stopColor={normalizeColor(col)} />;
       });
     }
 
