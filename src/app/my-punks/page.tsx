@@ -28,7 +28,7 @@ export default function MyPunksPage() {
 	const [error, setError] = useState<string | null>(null);
 
 	// Fetch token IDs owned by the connected address
-	const { data: tokensData, isError: tokensError } = useReadContracts({
+	const { data: tokensData, isError: tokensError, isLoading: tokensLoading } = useReadContracts({
 		contracts: [
 			{
 				address: RETROPUNKS_CONTRACT_ADDRESS,
@@ -44,16 +44,45 @@ export default function MyPunksPage() {
 	});
 
 	// Extract token IDs from contract response
-	useEffect(() => {
-		if (tokensData && tokensData[0]?.result) {
-			const tokens = tokensData[0].result as bigint[];
-			setTokenIds(tokens);
-			setLoading(false);
-		} else if (tokensError) {
-			setError("Failed to fetch your NFTs. Please try again.");
-			setLoading(false);
-		}
-	}, [tokensData, tokensError]);
+	// Extract token IDs from contract response
+useEffect(() => {
+    console.log('=== TOKEN FETCH DEBUG ===');
+    console.log('tokensData:', tokensData);
+    console.log('tokensError:', tokensError);
+    console.log('tokensLoading:', tokensLoading);
+    console.log('address:', address);
+    console.log('isConnected:', isConnected);
+    console.log('========================');
+
+    if (tokensLoading) {
+        // Still loading, don't do anything
+        return;
+    }
+
+    if (tokensError) {
+        console.error("Error fetching tokens:", tokensError);
+        setError("Failed to fetch your NFTs. Please check your connection and try again.");
+        return;
+    }
+
+    if (tokensData && tokensData[0]) {
+        const result = tokensData[0];
+        
+        // Check if the call succeeded
+        if (result.status === 'success' && result.result) {
+            const tokens = result.result as bigint[];
+            console.log("✅ Successfully fetched token IDs:", tokens);
+            setTokenIds(tokens);
+        } else if (result.status === 'failure') {
+            console.error("❌ Contract call failed:", result.error);
+            setError(`Contract call failed: ${result.error?.message || 'Unknown error'}`);
+        } else {
+            console.warn("⚠️ Unexpected result structure:", result);
+        }
+    } else {
+        console.warn("⚠️ No data received from contract");
+    }
+}, [tokensData, tokensError, tokensLoading, address, isConnected]);
 
 	// Fetch metadata for all tokens
 	useEffect(() => {

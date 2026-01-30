@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicClient, http } from "viem";
 import { mainnet, sepolia, base, baseSepolia } from "viem/chains";
-import { RETROPUNKS_ABI } from "@/lib/contract";
+import { RETROPUNKS_ABI } from "@/lib/retroPunksABI";
 
 export async function POST(request: NextRequest) {
 	const body = await request.json();
