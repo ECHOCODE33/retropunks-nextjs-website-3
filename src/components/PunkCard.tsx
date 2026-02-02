@@ -1,143 +1,295 @@
-// src/components/PunkCard.tsx
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { generateFullSVG, escapeHTML, getBackgroundDisplay } from "@/lib/svgGenerator";
+import { useState, useEffect, useRef, ReactElement } from "react";
+import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
+import { RETROPUNKS_CONTRACT, RETROPUNKS_ABI } from "@/lib/contracts";
+import { BACKGROUND_OPTIONS, BG_TYPES } from "@/lib/backgrounds";
+import { parseTokenURI, downloadPunkAsPng } from "@/lib/utilities";
 
-export interface PunkCardProps {
-	tokenId: bigint;
-	imageDataUrl: string;
-	initialBackgroundIndex?: number;
-	onBackgroundChange?: (tokenId: bigint, newIndex: number) => void;
+interface PunkCardProps {
+  tokenId: string;
+  tokenUri: string;
+  currentBg: number;
 }
 
-export default function PunkCard({ tokenId, imageDataUrl, initialBackgroundIndex = 0, onBackgroundChange }: PunkCardProps) {
-	const [currentBackgroundIndex, setCurrentBackgroundIndex] = useState(initialBackgroundIndex);
-	const [backgroundDisplay, setBackgroundDisplay] = useState(getBackgroundDisplay(initialBackgroundIndex));
-	const iframeRef = useRef<HTMLIFrameElement>(null);
+const PunkCard: React.FC<PunkCardProps> = ({ tokenId, tokenUri, currentBg }) => {
+  const [metadata, setMetadata] = useState<any>(null);
+  const [innerContent, setInnerContent] = useState<string>("");
+  const [viewBox, setViewBox] = useState<string>("0 0 48 48");
+  const [bgIndex, setBgIndex] = useState<number>(currentBg);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [isDownloadOpen, setIsDownloadOpen] = useState(false);
+  const [resolution, setResolution] = useState(512);
+  const [transparent, setTransparent] = useState(false);
 
-	// Generate the srcdoc content
-	const srcdocContent = generateFullSVG(imageDataUrl, initialBackgroundIndex, tokenId.toString());
-	const escapedSrcdoc = escapeHTML(srcdocContent);
+  const svgRef = useRef<SVGSVGElement>(null);
 
-	// Handle messages from iframe
-	useEffect(() => {
-		const handleMessage = (event: MessageEvent) => {
-			if (event.data.type === "current-background") {
-				const iframeId = event.data.iframeId;
-				if (iframeId === `nft-${tokenId}`) {
-					setBackgroundDisplay(event.data.backgroundIndex);
-					// Extract index number from "X/Y" format
-					const newIndex = parseInt(event.data.backgroundIndex.split("/")[0]);
-					setCurrentBackgroundIndex(newIndex);
-					onBackgroundChange?.(tokenId, newIndex);
-				}
-			}
-		};
+  const { writeContract, data: hash } = useWriteContract();
+  const { isLoading: isConfirming } = useWaitForTransactionReceipt({ hash });
 
-		window.addEventListener("message", handleMessage);
-		return () => window.removeEventListener("message", handleMessage);
-	}, [tokenId, onBackgroundChange]);
+  useEffect(() => {
+    if (tokenUri) {
+      const { metadata, innerCharacterContent, viewBox: vBox } = parseTokenURI(tokenUri);
+      setMetadata(metadata);
+      setInnerContent(innerCharacterContent);
+      setViewBox(vBox);
+      setBgIndex(currentBg);
+    }
+  }, [tokenUri, currentBg]);
 
-	// Handle previous background
-	const handlePrevBackground = () => {
-		if (iframeRef.current?.contentWindow) {
-			iframeRef.current.contentWindow.postMessage({ type: "background-prev" }, "*");
-		}
-	};
+  const handleCycle = (direction: "prev" | "next") => {
+    setBgIndex((prev) => {
+      if (direction === "next") return (prev + 1) % BACKGROUND_OPTIONS.length;
+      return prev === 0 ? BACKGROUND_OPTIONS.length - 1 : prev - 1;
+    });
+  };
 
-	// Handle next background
-	const handleNextBackground = () => {
-		if (iframeRef.current?.contentWindow) {
-			iframeRef.current.contentWindow.postMessage({ type: "background-next" }, "*");
-		}
-	};
+  const normalizeColor = (c: string): string => {
+    let s = c.trim().toLowerCase();
+    if (!s.startsWith('#')) s = '#' + s;
+    let body = s.slice(1);
+    if (body.length === 6) body += 'ff';
+    if (body.length === 8) return '#' + body;
+    return '#000000ff';
+  };
 
-	// Handle view details
-	const handleViewDetails = () => {
-		const blob = new Blob([srcdocContent], { type: "text/html" });
-		const url = URL.createObjectURL(blob);
-		window.open(url, "_blank");
-	};
+  const getGradientCoords = (layerType: number) => {
+    switch (layerType) {
+      case BG_TYPES.S_Vertical:
+      case BG_TYPES.P_Vertical:
+        return { x1: "0", y1: "0", x2: "0", y2: "1" };
+      case BG_TYPES.S_Horizontal:
+      case BG_TYPES.P_Horizontal:
+        return { x1: "0", y1: "0", x2: "1", y2: "0" };
+      case BG_TYPES.S_Down:
+      case BG_TYPES.P_Down:
+        return { x1: "0", y1: "0", x2: "1", y2: "1" };
+      case BG_TYPES.S_Up:
+      case BG_TYPES.P_Up:
+        return { x1: "0", y1: "1", x2: "1", y2: "0" };
+      default:
+        return { x1: "0", y1: "0", x2: "0", y2: "1" };
+    }
+  };
 
-	// Handle download
-	const handleDownload = () => {
-		const blob = new Blob([srcdocContent], { type: "text/html" });
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = `retropunk-${tokenId}.html`;
-		document.body.appendChild(a);
-		a.click();
-		document.body.removeChild(a);
-		URL.revokeObjectURL(url);
-	};
+  const renderBackground = () => {
+    const bg = BACKGROUND_OPTIONS[bgIndex] || BACKGROUND_OPTIONS[0];
+    const { layerType, palette = [], name } = bg;
+    const [, , w, h] = viewBox.split(" ");
+    const width = w || "48";
+    const height = h || "48";
+    const gradId = `grad-${tokenId}-${bgIndex}`;
 
-	// Handle fullscreen
-	const handleFullscreen = () => {
-		if (iframeRef.current) {
-			if (iframeRef.current.requestFullscreen) {
-				iframeRef.current.requestFullscreen();
-			}
-		}
-	};
+    // Special handling for Rainbow (image type → rainbow gradient)
+    if (layerType === BG_TYPES.Image && name === "Rainbow") {
+      const rainbowPalette = ["#ff0000", "#ff7f00", "#ffff00", "#00ff00", "#0000ff", "#4b0082", "#9400d3"];
+      const stops = rainbowPalette.map((col, i) => (
+        <stop key={i} offset={`${(i / (rainbowPalette.length - 1)) * 100}%`} stopColor={col} />
+      ));
 
-	// Format token ID with leading zeros (e.g., "01023")
-	const formattedTokenId = tokenId.toString().padStart(5, "0");
+      return (
+        <g id="Background">
+          <defs>
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              {stops}
+            </linearGradient>
+          </defs>
+          <rect x="0" y="0" width={width} height={height} fill={`url(#${gradId})`} />
+        </g>
+      );
+    }
 
-	return (
-		<div className="flex flex-col items-center max-w-[200px]">
-			<div className="flex flex-col items-center border-[3px] border-[#ff8c42] p-2 overflow-hidden bg-[#2a2a2a]">
-				{/* iframe with NFT SVG */}
-				<iframe ref={iframeRef} id={`nft-${tokenId}`} srcDoc={escapedSrcdoc} width="200" height="200" sandbox="allow-scripts allow-same-origin" className="border-0" title={`RetroPunk #${tokenId}`} />
+    // Solid
+    if (layerType === BG_TYPES.Solid) {
+      const color = palette[0] ? normalizeColor(palette[0]) : "#000000ff";
+      return (
+        <g id="Background">
+          <rect x="0" y="0" width={width} height={height} fill={color} />
+        </g>
+      );
+    }
 
-				{/* Token ID Display */}
-				<div className="text-base text-white mt-2">ID: {formattedTokenId}</div>
+    // Radial
+    if (layerType === BG_TYPES.Radial) {
+      const stops = palette.map((col, i) => {
+        const offset = palette.length > 1 ? (i / (palette.length - 1)) * 100 : 0;
+        return <stop key={i} offset={`${offset}%`} stopColor={normalizeColor(col)} />;
+      });
 
-				{/* Background Navigation Controls */}
-				<div className="flex flex-row gap-2 mt-2 items-center">
-					{/* Previous Button */}
-					<button onClick={handlePrevBackground} className="flex items-center justify-center bg-[#ff8c42] hover:bg-[#ff9d5c] active:scale-95 transition-all p-1 cursor-pointer" title="Previous Background">
-						<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1.5em" width="1.5em" xmlns="http://www.w3.org/2000/svg" className="text-[#2a2a2a]">
-							<path d="M257.5 445.1l-22.2 22.2c-9.4 9.4-24.6 9.4-33.9 0L7 273c-9.4-9.4-9.4-24.6 0-33.9L201.4 44.7c9.4-9.4 24.6-9.4 33.9 0l22.2 22.2c9.5 9.5 9.3 25-.4 34.3L136.6 216H424c13.3 0 24 10.7 24 24v32c0 13.3-10.7 24-24 24H136.6l120.5 114.8c9.8 9.3 10 24.8.4 34.3z"></path>
-						</svg>
-					</button>
+      return (
+        <g id="Background">
+          <defs>
+            <radialGradient id={gradId} cx="50%" cy="50%" r="70%">
+              {stops}
+            </radialGradient>
+          </defs>
+          <rect x="0" y="0" width={width} height={height} fill={`url(#${gradId})`} />
+        </g>
+      );
+    }
 
-					{/* Background Display */}
-					<div className="text-sm text-white min-w-[50px] text-center">{backgroundDisplay}</div>
+    // Linear gradients (smooth or pixelated)
+    const isPixelated = [BG_TYPES.P_Vertical, BG_TYPES.P_Horizontal, BG_TYPES.P_Down, BG_TYPES.P_Up].includes(layerType as typeof BG_TYPES.P_Vertical);
+    const coords = getGradientCoords(layerType);
 
-					{/* Next Button */}
-					<button onClick={handleNextBackground} className="flex items-center justify-center bg-[#ff8c42] hover:bg-[#ff9d5c] active:scale-95 transition-all p-1 cursor-pointer" title="Next Background">
-						<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1.5em" width="1.5em" xmlns="http://www.w3.org/2000/svg" className="text-[#2a2a2a]">
-							<path d="M190.5 66.9l22.2-22.2c9.4-9.4 24.6-9.4 33.9 0L441 239c9.4 9.4 9.4 24.6 0 33.9L246.6 467.3c-9.4 9.4-24.6 9.4-33.9 0l-22.2-22.2c-9.5-9.5-9.3-25 .4-34.3L311.4 296H24c-13.3 0-24-10.7-24-24v-32c0-13.3 10.7-24 24-24h287.4L190.9 101.2c-9.8-9.3-10-24.8-.4-34.3z"></path>
-						</svg>
-					</button>
-				</div>
+    if (palette.length === 0) {
+      return (
+        <g id="Background">
+          <rect x="0" y="0" width={width} height={height} fill="transparent" />
+        </g>
+      );
+    }
 
-				{/* Action Buttons Row */}
-				<div className="mt-3 flex flex-row gap-2 w-full justify-center">
-					{/* View Details Button */}
-					<button onClick={handleViewDetails} className="flex items-center justify-center bg-[#ff8c42] hover:bg-[#ff9d5c] active:scale-95 transition-all p-2 cursor-pointer" title="View Details">
-						<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="1.2em" width="1.2em" xmlns="http://www.w3.org/2000/svg" className="text-[#2a2a2a]">
-							<path d="M256 8C119.043 8 8 119.083 8 256c0 136.997 111.043 248 248 248s248-111.003 248-248C504 119.083 392.957 8 256 8zm0 110c23.196 0 42 18.804 42 42s-18.804 42-42 42-42-18.804-42-42 18.804-42 42-42zm56 254c0 6.627-5.373 12-12 12h-88c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h12v-64h-12c-6.627 0-12-5.373-12-12v-24c0-6.627 5.373-12 12-12h64c6.627 0 12 5.373 12 12v100h12c6.627 0 12 5.373 12 12v24z"></path>
-						</svg>
-					</button>
+    let stops: ReactElement[] = [];
 
-					{/* Download Button */}
-					<button onClick={handleDownload} className="flex items-center justify-center bg-[#ff8c42] hover:bg-[#ff9d5c] active:scale-95 transition-all p-2 cursor-pointer" title="Download">
-						<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 512 512" height="1.2em" width="1.2em" xmlns="http://www.w3.org/2000/svg" className="text-[#2a2a2a]">
-							<path d="M216 0h80c13.3 0 24 10.7 24 24v168h87.7c17.8 0 26.7 21.5 14.1 34.1L269.7 378.3c-7.5 7.5-19.8 7.5-27.3 0L90.1 226.1c-12.6-12.6-3.7-34.1 14.1-34.1H192V24c0-13.3 10.7-24 24-24zm296 376v112c0 13.3-10.7 24-24 24H24c-13.3 0-24-10.7-24-24V376c0-13.3 10.7-24 24-24h146.7l49 49c20.1 20.1 52.5 20.1 72.6 0l49-49H488c13.3 0 24 10.7 24 24zm-124 88c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20zm64 0c0-11-9-20-20-20s-20 9-20 20 9 20 20 20 20-9 20-20z"></path>
-						</svg>
-					</button>
+    if (isPixelated) {
+      const n = palette.length;
+      const epsilon = 0.01;
+      for (let i = 0; i < n; i++) {
+        const start = (i / n) * 100;
+        const end = ((i + 1) / n) * 100;
+        stops.push(<stop key={`${i}-a`} offset={`${start}%`} stopColor={normalizeColor(palette[i])} />);
+        stops.push(<stop key={`${i}-b`} offset={`${end - epsilon}%`} stopColor={normalizeColor(palette[i])} />);
+        if (i < n - 1) {
+          stops.push(<stop key={`${i}-c`} offset={`${end}%`} stopColor={normalizeColor(palette[i + 1])} />);
+        }
+      }
+    } else {
+      const n = palette.length;
+      stops = palette.map((col, i) => {
+        const pct = n > 1 ? (i / (n - 1)) * 100 : 0;
+        return <stop key={i} offset={`${pct}%`} stopColor={normalizeColor(col)} />;
+      });
+    }
 
-					{/* Fullscreen Button */}
-					<button onClick={handleFullscreen} className="flex items-center justify-center bg-[#ff8c42] hover:bg-[#ff9d5c] active:scale-95 transition-all p-2 cursor-pointer" title="Fullscreen">
-						<svg stroke="currentColor" fill="currentColor" strokeWidth="0" viewBox="0 0 448 512" height="1.2em" width="1.2em" xmlns="http://www.w3.org/2000/svg" className="text-[#2a2a2a]">
-							<path d="M0 180V56c0-13.3 10.7-24 24-24h124c6.6 0 12 5.4 12 12v40c0 6.6-5.4 12-12 12H64v84c0 6.6-5.4 12-12 12H12c-6.6 0-12-5.4-12-12zM288 44v40c0 6.6 5.4 12 12 12h84v84c0 6.6 5.4 12 12 12h40c6.6 0 12-5.4 12-12V56c0-13.3-10.7-24-24-24H300c-6.6 0-12 5.4-12 12zm148 276h-40c-6.6 0-12 5.4-12 12v84h-84c-6.6 0-12 5.4-12 12v40c0 6.6 5.4 12 12 12h124c13.3 0 24-10.7 24-24V332c0-6.6-5.4-12-12-12zM160 468v-40c0-6.6-5.4-12-12-12H64v-84c0-6.6-5.4-12-12-12H12c-6.6 0-12 5.4-12 12v124c0 13.3 10.7 24 24 24h124c6.6 0 12-5.4 12-12z"></path>
-						</svg>
-					</button>
-				</div>
-			</div>
-		</div>
-	);
-}
+    return (
+      <g id="Background">
+        <defs>
+          <linearGradient id={gradId} x1={coords.x1} y1={coords.y1} x2={coords.x2} y2={coords.y2}>
+            {stops}
+          </linearGradient>
+        </defs>
+        <rect x="0" y="0" width={width} height={height} fill={`url(#${gradId})`} />
+      </g>
+    );
+  };
+
+  const handleDownload = async () => {
+    if (!svgRef.current) return;
+
+    const cloned = svgRef.current.cloneNode(true) as SVGSVGElement;
+    let svgString = new XMLSerializer().serializeToString(cloned);
+
+    const filename = `retropunk-${tokenId}-bg${bgIndex}${transparent ? "-transparent" : ""}`;
+    await downloadPunkAsPng(svgString, resolution, filename, transparent);
+    setIsDownloadOpen(false);
+  };
+
+  const paddedId = tokenId.padStart(5, "0");
+
+  return (
+    <div className="border-4 border-orange-500 rounded-xl bg-gray-900 overflow-hidden flex flex-col w-full max-w-md mx-auto">
+      {/* Clickable image area - cycles background on click */}
+      <div
+        className="aspect-square relative overflow-hidden bg-black cursor-pointer"
+        onClick={() => handleCycle("next")}
+      >
+        <svg
+          ref={svgRef}
+          viewBox={viewBox}
+          xmlns="http://www.w3.org/2000/svg"
+          className="w-full h-full block"
+          style={{ imageRendering: "pixelated" }}
+          preserveAspectRatio="xMidYMid meet"
+        >
+          {renderBackground()}
+          <g id="GeneratedImage" dangerouslySetInnerHTML={{ __html: innerContent }} />
+        </svg>
+      </div>
+
+      <div className="p-4 bg-black flex flex-col gap-4">
+        <div className="flex items-center justify-between text-white">
+          <div className="text-2xl font-bold">#{paddedId}</div>
+          <div className="flex items-center gap-6">
+            <button onClick={(e) => { e.stopPropagation(); handleCycle("prev"); }} className="text-4xl text-orange-500 hover:text-orange-400">←</button>
+            <div className="text-xl font-bold">{bgIndex + 1}/{BACKGROUND_OPTIONS.length}</div>
+            <button onClick={(e) => { e.stopPropagation(); handleCycle("next"); }} className="text-4xl text-orange-500 hover:text-orange-400">→</button>
+          </div>
+        </div>
+
+        <div className="flex justify-center gap-12 text-4xl text-orange-500">
+          <button onClick={(e) => { e.stopPropagation(); setIsDetailsOpen(true); }}>ℹ️</button>
+          <button onClick={(e) => { e.stopPropagation(); setIsDownloadOpen(true); }}>⬇️</button>
+          {bgIndex !== currentBg && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                writeContract({
+                  address: RETROPUNKS_CONTRACT,
+                  abi: RETROPUNKS_ABI,
+                  functionName: "setTokenBackground",
+                  args: [BigInt(tokenId), BigInt(bgIndex)],
+                });
+              }}
+            >
+              {isConfirming ? "⌛" : "⚙️"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Details Modal */}
+      {isDetailsOpen && metadata && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setIsDetailsOpen(false)}>
+          <div className="bg-gray-900 border-4 border-orange-500 rounded-xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-white">RetroPunk #{paddedId}</h2>
+              <button onClick={() => setIsDetailsOpen(false)} className="text-3xl text-orange-500">×</button>
+            </div>
+            <div className="aspect-square w-full mb-8 bg-black">
+              <svg viewBox={viewBox} className="w-full h-full" style={{ imageRendering: "pixelated" }}>
+                {renderBackground()}
+                <g id="GeneratedImage" dangerouslySetInnerHTML={{ __html: innerContent }} />
+              </svg>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {metadata.attributes.map((attr: any) => (
+                <div key={attr.trait_type} className="bg-black p-4 rounded border border-orange-900 text-white">
+                  <strong className="text-orange-400">{attr.trait_type}:</strong> {attr.value}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Download Modal */}
+      {isDownloadOpen && (
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50" onClick={() => setIsDownloadOpen(false)}>
+          <div className="bg-gray-900 border-4 border-orange-500 rounded-xl p-8 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-3xl font-bold text-white">Download</h2>
+              <button onClick={() => setIsDownloadOpen(false)} className="text-3xl text-orange-500">×</button>
+            </div>
+            <div className="space-y-6">
+              <select value={resolution} onChange={(e) => setResolution(Number(e.target.value))} className="w-full bg-black border border-orange-500 rounded px-4 py-2 text-white">
+                <option value={512}>512x512</option>
+                <option value={1024}>1024x1024</option>
+                <option value={2048}>2048x2048</option>
+              </select>
+              <label className="flex items-center gap-3 text-white">
+                <input type="checkbox" checked={transparent} onChange={(e) => setTransparent(e.target.checked)} className="w-5 h-5" />
+                Transparent Background
+              </label>
+              <button onClick={handleDownload} className="w-full bg-orange-500 text-black font-bold py-4 rounded hover:bg-orange-400">
+                Download PNG
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PunkCard;
